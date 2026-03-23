@@ -3,6 +3,20 @@ import whisper
 import datetime
 import os
 
+# បង្កើត Path ពេញលេញសម្រាប់ File បណ្តោះអាសន្ន
+TEMP_FILE_PATH = "temp_audio_file.mp4"
+
+if uploaded_file is not None:
+    with open(TEMP_FILE_PATH, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+    
+    # បន្ទាប់មកប្រើ Path នេះក្នុង model.transcribe
+    result = model.transcribe(TEMP_FILE_PATH)
+    
+    # បន្ទាប់ពីប្រើរួច គួរលុបវាចេញវិញដើម្បីកុំឱ្យពេញ Server
+    if os.path.exists(TEMP_FILE_PATH):
+        os.remove(TEMP_FILE_PATH)
+
 # មុខងារបំប្លែងពេលវេលាឱ្យទៅជា Format របស់ SRT (00:00:00,000)
 def format_time(seconds):
     td = datetime.timedelta(seconds=seconds)
