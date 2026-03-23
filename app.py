@@ -3,9 +3,11 @@ import whisper
 import datetime
 import os
 
-# --- ១. បង្កើតមុខងារជំនួយ (Helper Functions) ---
+# --- ១. កំណត់ការកំណត់ទំព័រ (ត្រូវតែនៅខាងលើគេបង្អស់) ---
+st.set_page_config(page_title="Video to SRT & Login", page_icon="🎥")
 
-# មុខងារបំប្លែងពេលវេលាឱ្យទៅជា Format របស់ SRT (00:00:00,000)
+# --- ២. មុខងារជំនួយ (Helper Functions) ---
+
 def format_time(seconds):
     td = datetime.timedelta(seconds=seconds)
     total_seconds = int(td.total_seconds())
@@ -14,37 +16,59 @@ def format_time(seconds):
     milliseconds = int((td.total_seconds() - total_seconds) * 1000)
     return f"{hours:02}:{minutes:02}:{seconds:02},{milliseconds:03}"
 
-# --- ២. រៀបចំ Interface របស់កម្មវិធី ---
+def login():
+    st.title("🔐 សូមចូលប្រើប្រាស់កម្មវិធី")
+    with st.form("login_form"):
+        username = st.text_input("ឈ្មោះអ្នកប្រើប្រាស់ (Username)")
+        password = st.text_input("លេខសម្ងាត់ (Password)", type="password")
+        submit_button = st.form_submit_button("ចូលប្រើ (Login)")
 
-st.set_page_config(page_title="Video to SRT", page_icon="🎥")
+        if submit_button:
+            # ប្តូរ Username និង Password នៅទីនេះ
+            if username == "admin" and password == "123456":
+                st.session_state.logged_in = True
+                st.success("ការចូលប្រើជោគជ័យ!")
+                st.rerun()
+            else:
+                st.error("ឈ្មោះអ្នកប្រើប្រាស់ ឬលេខសម្ងាត់មិនត្រឹមត្រូវទេ!")
+
+# --- ៣. ប្រព័ន្ធគ្រប់គ្រងការចូលប្រើ (Auth Logic) ---
+
+if 'logged_in' not in st.session_state:
+    st.session_state.logged_in = False
+
+if not st.session_state.logged_in:
+    login()
+    st.stop()
+
+# --- ៤. ផ្នែកកម្មវិធីចម្បង (បន្ទាប់ពី Login រួច) ---
+
+# ប៊ូតុង Logout នៅ Sidebar
+st.sidebar.title("ការកំណត់")
+if st.sidebar.button("ចាកចេញ (Log out)"):
+    st.session_state.logged_in = False
+    st.rerun()
+
 st.title("🎥 Video to SRT Transcriber")
-st.write("បំប្លែងវីដេអូ ឬសំឡេងទៅជាអត្ថបទអក្សររត់ក្រោម (SRT)")
+st.write(f"សួស្តី **{st.session_state.get('username', 'អ្នកប្រើប្រាស់')}**! សូមបញ្ចូលវីដេអូដើម្បីចាប់ផ្តើម។")
 
-# កន្លែងសម្រាប់ Upload File (ដាក់នៅខាងលើដើម្បីឱ្យ Python ស្គាល់អថេរនេះមុន)
 uploaded_file = st.file_uploader("ជ្រើសរើសវីដេអូ ឬសំឡេង (mp4, mp3, m4a, wav)", type=["mp4", "mp3", "m4a", "wav"])
-
-# --- ៣. Logic ចម្បង ---
 
 if uploaded_file is not None:
     st.info(f"ឯកសារដែលបានជ្រើសរើស: {uploaded_file.name}")
     
-    # ប៊ូតុងចាប់ផ្តើម
     if st.button("🚀 ចាប់ផ្តើមបំប្លែង (Transcribe)"):
         try:
             with st.spinner("កំពុងដំណើរការ... សូមរង់ចាំ (អាចប្រើពេលពីរបីនាទី)"):
                 
-                # រក្សាទុក File បណ្តោះអាសន្ន ដើម្បីឱ្យ Whisper អាចអានបាន
                 temp_filename = "temp_data_file"
                 with open(temp_filename, "wb") as f:
                     f.write(uploaded_file.getbuffer())
 
-                # Load Model (ប្រើ 'base' សម្រាប់តុល្យភាពល្បឿន និងភាពត្រឹមត្រូវ)
+                # បើម៉ាស៊ីន Online ខ្សោយ ប្រើ model="tiny" ឬ "base"
                 model = whisper.load_model("base")
-                
-                # ចាប់ផ្តើមបំប្លែង
                 result = model.transcribe(temp_filename)
 
-                # បង្កើត Format SRT
                 srt_content = ""
                 for i, segment in enumerate(result['segments']):
                     start = format_time(segment['start'])
@@ -52,11 +76,9 @@ if uploaded_file is not None:
                     text = segment['text'].strip()
                     srt_content += f"{i + 1}\n{start} --> {end}\n{text}\n\n"
 
-                # បង្ហាញលទ្ធផល
                 st.success("✅ បំប្លែងរួចរាល់!")
                 st.text_area("អត្ថបទដែលទាញបាន (Preview):", srt_content, height=250)
                 
-                # ប៊ូតុងទាញយក
                 st.download_button(
                     label="📥 ទាញយកឯកសារ .srt",
                     data=srt_content,
@@ -64,7 +86,6 @@ if uploaded_file is not None:
                     mime="text/plain"
                 )
 
-                # លុប File បណ្តោះអាសន្នចេញពី Server ដើម្បីកុំឱ្យពេញ
                 if os.path.exists(temp_filename):
                     os.remove(temp_filename)
                     
